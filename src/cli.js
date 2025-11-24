@@ -71,12 +71,26 @@ function showInfo(message) {
   console.log(colors.info(`ℹ ${message}`));
 }
 
+async function cleanupClosedBrowsers() {
+  const toRemove = [];
+  for (const [name, context] of runningBrowsers) {
+    try {
+      if (context.pages && await context.pages().then(pages => pages.length === 0).catch(() => false)) {
+        toRemove.push(name);
+      }
+    } catch (error) {
+      toRemove.push(name);
+    }
+  }
+  toRemove.forEach(name => runningBrowsers.delete(name));
+}
+
 function formatProfileRow(profile, groups) {
   const groupName = profile.group ? groups.find(g => g.id === profile.group)?.name || '-' : '-';
-  const running = runningBrowsers.has(profile.name) ? '●' : ' ';
-  const starred = profile.starred ? '⭐' : ' ';
-  const proxy = profile.proxy ? '✓' : ' ';
-  const fingerprint = profile.enableFingerprint !== false ? '✓' : ' ';
+  const running = runningBrowsers.has(profile.name) ? '[●]' : '   ';
+  const starred = profile.starred ? ' ★' : '  ';
+  const proxy = profile.proxy ? ' ✓' : '  ';
+  const fingerprint = profile.enableFingerprint !== false ? ' ✓' : '  ';
   
   return [
     running + ' ' + profile.name,
@@ -90,6 +104,7 @@ function formatProfileRow(profile, groups) {
 }
 
 async function showMainMenu() {
+  await cleanupClosedBrowsers();
   printHeader();
   
   const { action } = await inquirer.prompt([
@@ -98,20 +113,20 @@ async function showMainMenu() {
       name: 'action',
       message: '请选择操作',
       choices: [
-        { name: '📋 查看所有配置', value: 'list' },
-        { name: '➕ 创建新配置', value: 'create' },
-        { name: '▶️  打开配置', value: 'open' },
-        { name: '✏️  编辑配置', value: 'edit' },
-        { name: '📝 重命名配置', value: 'rename' },
-        { name: '🗑️  删除配置', value: 'delete' },
-        { name: '⭐ 星标管理', value: 'star' },
-        { name: '🔄 重新生成指纹', value: 'fingerprint' },
-        { name: '📁 分组管理', value: 'group' },
-        { name: '📤 导出配置', value: 'export' },
-        { name: '📥 导入配置', value: 'import' },
-        { name: '🗂️  批量删除', value: 'batchDelete' },
-        { name: '🔴 关闭浏览器', value: 'closeBrowser' },
-        { name: '❌ 退出', value: 'exit' }
+        { name: '[1] 查看所有配置', value: 'list' },
+        { name: '[2] 创建新配置', value: 'create' },
+        { name: '[3] 打开配置', value: 'open' },
+        { name: '[4] 编辑配置', value: 'edit' },
+        { name: '[5] 重命名配置', value: 'rename' },
+        { name: '[6] 删除配置', value: 'delete' },
+        { name: '[7] 星标管理', value: 'star' },
+        { name: '[8] 重新生成指纹', value: 'fingerprint' },
+        { name: '[9] 分组管理', value: 'group' },
+        { name: '[10] 导出配置', value: 'export' },
+        { name: '[11] 导入配置', value: 'import' },
+        { name: '[12] 批量删除', value: 'batchDelete' },
+        { name: '[13] 关闭浏览器', value: 'closeBrowser' },
+        { name: '[14] 退出', value: 'exit' }
       ],
       pageSize: 14
     }
@@ -153,7 +168,7 @@ async function listProfilesMenu() {
       head: ['', '名称', '浏览器', '分组', '★', 'Proxy', '指纹', '使用次数'],
       style: { head: [], border: ['cyan'] },
       wordWrap: true,
-      colWidths: [3, 20, 12, 12, 3, 6, 6, 8]
+      colWidths: [5, 20, 12, 12, 3, 6, 6, 8]
     });
 
     profiles.forEach(p => {
@@ -161,7 +176,7 @@ async function listProfilesMenu() {
     });
 
     console.log(table.toString());
-    console.log(colors.dim('● = 运行中\n'));
+    console.log(colors.dim('[●] = 运行中\n'));
     await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   } catch (error) {
@@ -185,8 +200,8 @@ async function createProfileMenu() {
         name: 'browserType',
         message: '浏览器类型',
         choices: [
-          { name: 'Chromium', value: 'chromium' },
-          { name: 'Firefox', value: 'firefox' }
+          { name: '[1] Chromium', value: 'chromium' },
+          { name: '[2] Firefox', value: 'firefox' }
         ]
       },
       {
@@ -219,11 +234,9 @@ async function createProfileMenu() {
     });
 
     spinner.succeed('配置创建成功');
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   }
 }
@@ -240,7 +253,7 @@ async function openProfileMenu() {
     }
 
     const choices = profiles.map(p => ({
-      name: `${runningBrowsers.has(p.name) ? '● ' : '  '} ${p.name} (${p.browserType})`,
+      name: `${runningBrowsers.has(p.name) ? '[●]' : '   '} ${p.name} (${p.browserType})`,
       value: p.name,
       disabled: runningBrowsers.has(p.name) ? '已运行' : false
     }));
@@ -260,12 +273,10 @@ async function openProfileMenu() {
     const { context } = await launchBrowser(profile.path, profile.name);
     runningBrowsers.set(profile.name, context);
 
-    spinner.succeed('浏览器已启动');
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
+    spinner.succeed('浏览器已启动，返回主菜单...');
     return showMainMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   }
 }
@@ -321,11 +332,9 @@ async function editProfileMenu() {
     });
 
     spinner.succeed('配置已更新');
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   }
 }
@@ -362,11 +371,9 @@ async function renameProfileMenu() {
     await renameProfile(oldName, newName);
     spinner.succeed('配置已重命名');
 
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   }
 }
@@ -401,7 +408,6 @@ async function deleteProfileMenu() {
 
     if (!confirm) {
       showInfo('已取消');
-      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
       return showMainMenu();
     }
 
@@ -409,11 +415,9 @@ async function deleteProfileMenu() {
     await removeProfile(profileName);
     spinner.succeed('配置已删除');
 
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   }
 }
@@ -434,7 +438,7 @@ async function starManagementMenu() {
         name: 'profileName',
         message: '选择配置',
         choices: profiles.map(p => ({
-          name: `${p.starred ? '⭐' : '  '} ${p.name}`,
+          name: `${p.starred ? ' ★' : '  '} ${p.name}`,
           value: p.name
         }))
       }
@@ -446,11 +450,9 @@ async function starManagementMenu() {
     await updateProfile(profileName, { starred: !profile.starred });
     spinner.succeed(`已${profile.starred ? '取消' : ''}星标`);
 
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   }
 }
@@ -478,11 +480,9 @@ async function fingerprintMenu() {
     await regenerateFingerprint(profileName);
     spinner.succeed('指纹已重新生成');
 
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   }
 }
@@ -496,11 +496,11 @@ async function groupManagementMenu() {
       name: 'action',
       message: '选择操作',
       choices: [
-        { name: '📋 查看所有分组', value: 'list' },
-        { name: '➕ 创建分组', value: 'create' },
-        { name: '✏️  编辑分组', value: 'edit' },
-        { name: '🗑️  删除分组', value: 'delete' },
-        { name: '← 返回主菜单', value: 'back' }
+        { name: '[1] 查看所有分组', value: 'list' },
+        { name: '[2] 创建分组', value: 'create' },
+        { name: '[3] 编辑分组', value: 'edit' },
+        { name: '[4] 删除分组', value: 'delete' },
+        { name: '[0] 返回主菜单', value: 'back' }
       ]
     }
   ]);
@@ -562,7 +562,14 @@ async function createGroupMenu() {
         type: 'list',
         name: 'color',
         message: '颜色',
-        choices: ['blue', 'green', 'red', 'purple', 'yellow', 'cyan'],
+        choices: [
+          { name: '[1] blue', value: 'blue' },
+          { name: '[2] green', value: 'green' },
+          { name: '[3] red', value: 'red' },
+          { name: '[4] purple', value: 'purple' },
+          { name: '[5] yellow', value: 'yellow' },
+          { name: '[6] cyan', value: 'cyan' }
+        ],
         default: 'blue'
       }
     ]);
@@ -571,11 +578,9 @@ async function createGroupMenu() {
     await createGroup(answers.name, answers.color);
     spinner.succeed('分组创建成功');
 
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return groupManagementMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return groupManagementMenu();
   }
 }
@@ -612,7 +617,14 @@ async function editGroupMenu() {
         type: 'list',
         name: 'color',
         message: '颜色',
-        choices: ['blue', 'green', 'red', 'purple', 'yellow', 'cyan'],
+        choices: [
+          { name: '[1] blue', value: 'blue' },
+          { name: '[2] green', value: 'green' },
+          { name: '[3] red', value: 'red' },
+          { name: '[4] purple', value: 'purple' },
+          { name: '[5] yellow', value: 'yellow' },
+          { name: '[6] cyan', value: 'cyan' }
+        ],
         default: group.color
       }
     ]);
@@ -621,11 +633,9 @@ async function editGroupMenu() {
     await updateGroup(groupId, answers);
     spinner.succeed('分组已更新');
 
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return groupManagementMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return groupManagementMenu();
   }
 }
@@ -660,7 +670,6 @@ async function deleteGroupMenu() {
 
     if (!confirm) {
       showInfo('已取消');
-      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
       return groupManagementMenu();
     }
 
@@ -668,11 +677,9 @@ async function deleteGroupMenu() {
     await deleteGroup(groupId);
     spinner.succeed('分组已删除');
 
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return groupManagementMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return groupManagementMenu();
   }
 }
@@ -702,11 +709,9 @@ async function exportProfileMenu() {
     writeFileSync(filename, JSON.stringify(config, null, 2));
     spinner.succeed(`配置已导出到: ${filename}`);
 
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   }
 }
@@ -734,11 +739,9 @@ async function importProfileMenu() {
     await importProfile(answers.name, config);
     spinner.succeed('配置导入成功');
 
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   }
 }
@@ -774,7 +777,6 @@ async function batchDeleteMenu() {
 
     if (!confirm) {
       showInfo('已取消');
-      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
       return showMainMenu();
     }
 
@@ -782,17 +784,17 @@ async function batchDeleteMenu() {
     await batchDeleteProfiles(selectedProfiles);
     spinner.succeed(`成功删除 ${selectedProfiles.length} 个配置`);
 
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   }
 }
 
 async function closeBrowserMenu() {
   try {
+    await cleanupClosedBrowsers();
+
     if (runningBrowsers.size === 0) {
       printHeader('关闭浏览器');
       showInfo('没有运行中的浏览器');
@@ -807,9 +809,9 @@ async function closeBrowserMenu() {
         name: 'browserName',
         message: '选择要关闭的浏览器',
         choices: [
-          ...browserList.map(name => ({ name: `● ${name}`, value: name })),
-          { name: '关闭全部', value: 'all' },
-          { name: '取消', value: 'cancel' }
+          ...browserList.map((name, i) => ({ name: `[${i+1}] ${name}`, value: name })),
+          { name: '[A] 关闭全部', value: 'all' },
+          { name: '[0] 取消', value: 'cancel' }
         ]
       }
     ]);
@@ -822,9 +824,13 @@ async function closeBrowserMenu() {
 
     if (browserName === 'all') {
       for (const [name, context] of runningBrowsers) {
-        await closeBrowser(context);
-        runningBrowsers.delete(name);
+        try {
+          await closeBrowser(context);
+        } catch (error) {
+          console.error(`关闭 ${name} 失败:`, error.message);
+        }
       }
+      runningBrowsers.clear();
       spinner.succeed('所有浏览器已关闭');
     } else {
       const context = runningBrowsers.get(browserName);
@@ -833,11 +839,9 @@ async function closeBrowserMenu() {
       spinner.succeed('浏览器已关闭');
     }
 
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
     return showMainMenu();
   }
 }
