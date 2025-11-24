@@ -1,7 +1,7 @@
 browsers/
 dist/
-profiles/
 node_modules/
-pnpm-lock.yaml
 .DS_Store
 *.log
+temp-build/
+.env.local
