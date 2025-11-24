@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 export function checkBrowsersInstalled() {
   // 优先使用环境变量，否则从应用根目录查找
   const browsersDir = process.env.PLAYWRIGHT_BROWSERS_PATH || 
-    path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'browsers');
+    path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'browsers');
   
   let hasChromium = false;
   let hasFirefox = false;
