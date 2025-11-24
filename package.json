@@ -10,12 +10,16 @@
     "pnpm": ">=10.0.0"
   },
   "scripts": {
-    "start": "electron ./src/gui/main.js",
+    "start": "node src/cli.js",
+    "gui": "electron ./src/gui/main.js",
     "package": "node build-with-browsers.js"
   },
   "dependencies": {
     "archiver": "^6.0.0",
     "commander": "^11.0.0",
+    "inquirer": "^9.2.12",
+    "chalk": "^5.3.0",
+    "cli-table3": "^0.6.3",
     "playwright": "^1.45.0",
     "sql.js": "^1.10.3",
     "vue": "^3.5.24"
