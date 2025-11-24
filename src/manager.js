@@ -56,6 +56,16 @@ export async function createProfile(name, options = {}) {
     
     await db.createProfile(profileData);
     
+    const metaData = {
+      browserType,
+      enableFingerprint,
+      fingerprint,
+      proxy: proxy ? { server: proxy.server, username: proxy.username, password: proxy.password } : null,
+      startUrl,
+      customArgs
+    };
+    await fs.writeFile(path.join(profilePath, 'meta.json'), JSON.stringify(metaData, null, 2));
+    
     console.log(`✓ 配置 "${name}" 创建成功`);
     return profilePath;
   } catch (error) {
@@ -112,8 +122,21 @@ export async function updateProfile(name, updates) {
   
   try {
     await db.updateProfile(name, updates);
+    
+    const profile = await db.getProfile(name);
+    const profilePath = path.join(PROFILES_DIR, name);
+    const metaData = {
+      browserType: profile.browserType,
+      enableFingerprint: profile.enableFingerprint,
+      fingerprint: profile.fingerprint,
+      proxy: profile.proxy,
+      startUrl: profile.startUrl,
+      customArgs: profile.customArgs
+    };
+    await fs.writeFile(path.join(profilePath, 'meta.json'), JSON.stringify(metaData, null, 2));
+    
     console.log(`✓ 配置 "${name}" 更新成功`);
-    return await db.getProfile(name);
+    return profile;
   } catch (error) {
     console.error(`更新配置失败:`, error.message);
     throw new Error(`更新配置 "${name}" 失败: ${error.message}`);
@@ -156,6 +179,19 @@ export async function regenerateFingerprint(name) {
   try {
     const fingerprint = generateFingerprint();
     await db.updateProfile(name, { fingerprint });
+    
+    const profile = await db.getProfile(name);
+    const profilePath = path.join(PROFILES_DIR, name);
+    const metaData = {
+      browserType: profile.browserType,
+      enableFingerprint: profile.enableFingerprint,
+      fingerprint: profile.fingerprint,
+      proxy: profile.proxy,
+      startUrl: profile.startUrl,
+      customArgs: profile.customArgs
+    };
+    await fs.writeFile(path.join(profilePath, 'meta.json'), JSON.stringify(metaData, null, 2));
+    
     console.log(`✓ 配置 "${name}" 指纹重新生成成功`);
     return fingerprint;
   } catch (error) {
@@ -250,6 +286,16 @@ export async function importProfile(name, config) {
     };
     
     await db.createProfile(profileData);
+    
+    const metaData = {
+      browserType: config.browserType,
+      enableFingerprint: config.enableFingerprint,
+      fingerprint: config.fingerprint,
+      proxy: config.proxy || null,
+      startUrl: config.startUrl,
+      customArgs: config.customArgs
+    };
+    await fs.writeFile(path.join(profilePath, 'meta.json'), JSON.stringify(metaData, null, 2));
     
     console.log(`✓ 配置 "${name}" 导入成功`);
     return profilePath;
