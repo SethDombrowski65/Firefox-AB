@@ -12,15 +12,11 @@ import {
   listProfiles,
   removeProfile,
   updateProfile,
-  renameProfile,
-  regenerateFingerprint,
-  createGroup,
   listGroups,
-  updateGroup,
+  createGroup,
   deleteGroup,
   exportProfile,
-  importProfile,
-  batchDeleteProfiles
+  importProfile
 } from './manager.js';
 import { launchBrowser, closeBrowser } from './launcher.js';
 import { readFileSync, writeFileSync } from 'fs';
@@ -85,24 +81,6 @@ async function cleanupClosedBrowsers() {
   toRemove.forEach(name => runningBrowsers.delete(name));
 }
 
-function formatProfileRow(profile, groups) {
-  const groupName = profile.group ? groups.find(g => g.id === profile.group)?.name || '-' : '-';
-  const running = runningBrowsers.has(profile.name) ? '[●]' : '   ';
-  const starred = profile.starred ? ' ★' : '  ';
-  const proxy = profile.proxy ? ' ✓' : '  ';
-  const fingerprint = profile.enableFingerprint !== false ? ' ✓' : '  ';
-  
-  return [
-    running + ' ' + profile.name,
-    profile.browserType === 'firefox' ? 'Firefox' : 'Chromium',
-    groupName,
-    starred,
-    proxy,
-    fingerprint,
-    profile.useCount || 0
-  ];
-}
-
 async function showMainMenu() {
   await cleanupClosedBrowsers();
   printHeader();
@@ -113,81 +91,102 @@ async function showMainMenu() {
       name: 'action',
       message: '请选择操作',
       choices: [
-        { name: '[1] 查看所有配置', value: 'list' },
-        { name: '[2] 创建新配置', value: 'create' },
-        { name: '[3] 打开配置', value: 'open' },
-        { name: '[4] 编辑配置', value: 'edit' },
-        { name: '[5] 重命名配置', value: 'rename' },
-        { name: '[6] 删除配置', value: 'delete' },
-        { name: '[7] 星标管理', value: 'star' },
-        { name: '[8] 重新生成指纹', value: 'fingerprint' },
-        { name: '[9] 分组管理', value: 'group' },
-        { name: '[10] 导出配置', value: 'export' },
-        { name: '[11] 导入配置', value: 'import' },
-        { name: '[12] 批量删除', value: 'batchDelete' },
-        { name: '[13] 关闭浏览器', value: 'closeBrowser' },
-        { name: '[14] 退出', value: 'exit' }
+        { name: '[1] 管理配置', value: 'configMgmt' },
+        { name: '[2] 管理分组', value: 'groupMgmt' },
+        { name: '[3] 备份管理', value: 'backupMgmt' },
+        { name: '[4] 退出', value: 'exit' }
       ],
-      pageSize: 14
+      pageSize: 4
     }
   ]);
 
   switch(action) {
-    case 'list': await listProfilesMenu(); break;
-    case 'create': await createProfileMenu(); break;
-    case 'open': await openProfileMenu(); break;
-    case 'edit': await editProfileMenu(); break;
-    case 'rename': await renameProfileMenu(); break;
-    case 'delete': await deleteProfileMenu(); break;
-    case 'star': await starManagementMenu(); break;
-    case 'fingerprint': await fingerprintMenu(); break;
-    case 'group': await groupManagementMenu(); break;
-    case 'export': await exportProfileMenu(); break;
-    case 'import': await importProfileMenu(); break;
-    case 'batchDelete': await batchDeleteMenu(); break;
-    case 'closeBrowser': await closeBrowserMenu(); break;
-    case 'exit': process.exit(0);
+    case 'configMgmt': await configManagementMenu(); break;
+    case 'groupMgmt': await groupManagementMenu(); break;
+    case 'backupMgmt': await backupManagementMenu(); break;
+    case 'exit': await exitApp(); break;
   }
 }
 
-async function listProfilesMenu() {
+async function configManagementMenu() {
+  printHeader('管理配置');
+  
+  const { action } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'action',
+      message: '选择操作',
+      choices: [
+        { name: '[1] 打开配置', value: 'open' },
+        { name: '[2] 创建配置', value: 'create' },
+        { name: '[3] 删除配置', value: 'delete' },
+        { name: '[0] 返回主菜单', value: 'back' }
+      ]
+    }
+  ]);
+
+  switch(action) {
+    case 'open': await openProfileMenu(); break;
+    case 'create': await createProfileMenu(); break;
+    case 'delete': await deleteProfileMenu(); break;
+    case 'back': return showMainMenu();
+  }
+}
+
+async function openProfileMenu() {
   try {
     const profiles = await listProfiles();
     const groups = await listGroups();
 
     if (profiles.length === 0) {
       printHeader('暂无配置');
-      showInfo('创建一个新配置来开始');
-      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 继续...' }]);
-      return showMainMenu();
+      showError('没有可打开的配置');
+      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
+      return configManagementMenu();
     }
 
-    printHeader(`配置列表 (共 ${profiles.length} 个)`);
-
-    const table = new Table({
-      head: ['', '名称', '浏览器', '分组', '★', 'Proxy', '指纹', '使用次数'],
-      style: { head: [], border: ['cyan'] },
-      wordWrap: true,
-      colWidths: [5, 20, 12, 12, 3, 6, 6, 8]
+    const choices = profiles.map(p => {
+      const groupName = p.group ? groups.find(g => g.id === p.group)?.name : '-';
+      const running = runningBrowsers.has(p.name) ? '[●]' : '   ';
+      return {
+        name: `${running} ${p.name} (${p.browserType}) [${groupName}]`,
+        value: p.name,
+        disabled: runningBrowsers.has(p.name) ? '已运行' : false
+      };
     });
 
-    profiles.forEach(p => {
-      table.push(formatProfileRow(p, groups));
-    });
+    const { profileName } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'profileName',
+        message: '选择要打开的配置',
+        choices
+      }
+    ]);
 
-    console.log(table.toString());
-    console.log(colors.dim('[●] = 运行中\n'));
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
-    return showMainMenu();
+    const profile = profiles.find(p => p.name === profileName);
+    const spinner = ora(`正在启动 ${profileName}...`).start();
+
+    const { context } = await launchBrowser(profile.path, profile.name);
+    runningBrowsers.set(profile.name, context);
+
+    spinner.succeed('浏览器已启动，返回菜单...');
+    return configManagementMenu();
   } catch (error) {
     showError(error.message);
-    await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
-    return showMainMenu();
+    return configManagementMenu();
   }
 }
 
 async function createProfileMenu() {
   try {
+    const groups = await listGroups();
+    
+    const groupChoices = groups.length > 0 
+      ? groups.map((g, i) => ({ name: `[${i+1}] ${g.name}`, value: g.id }))
+      : [];
+    groupChoices.push({ name: '[0] 无分组', value: '' });
+
     const answers = await inquirer.prompt([
       {
         type: 'input',
@@ -205,10 +204,10 @@ async function createProfileMenu() {
         ]
       },
       {
-        type: 'confirm',
-        name: 'enableFingerprint',
-        message: '启用指纹保护',
-        default: true
+        type: 'list',
+        name: 'group',
+        message: '选择分组',
+        choices: groupChoices
       },
       {
         type: 'input',
@@ -228,164 +227,30 @@ async function createProfileMenu() {
     
     await createProfile(answers.name, {
       browserType: answers.browserType,
-      enableFingerprint: answers.enableFingerprint,
+      enableFingerprint: true,
+      group: answers.group,
       proxy: answers.proxy ? { server: answers.proxy } : null,
       startUrl: answers.startUrl
     });
 
     spinner.succeed('配置创建成功');
-    return showMainMenu();
+    return configManagementMenu();
   } catch (error) {
     showError(error.message);
-    return showMainMenu();
-  }
-}
-
-async function openProfileMenu() {
-  try {
-    const profiles = await listProfiles();
-
-    if (profiles.length === 0) {
-      printHeader('暂无配置');
-      showError('没有可打开的配置');
-      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
-      return showMainMenu();
-    }
-
-    const choices = profiles.map(p => ({
-      name: `${runningBrowsers.has(p.name) ? '[●]' : '   '} ${p.name} (${p.browserType})`,
-      value: p.name,
-      disabled: runningBrowsers.has(p.name) ? '已运行' : false
-    }));
-
-    const { profileName } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'profileName',
-        message: '选择要打开的配置',
-        choices
-      }
-    ]);
-
-    const profile = profiles.find(p => p.name === profileName);
-    const spinner = ora(`正在启动 ${profileName}...`).start();
-
-    const { context } = await launchBrowser(profile.path, profile.name);
-    runningBrowsers.set(profile.name, context);
-
-    spinner.succeed('浏览器已启动，返回主菜单...');
-    return showMainMenu();
-  } catch (error) {
-    showError(error.message);
-    return showMainMenu();
-  }
-}
-
-async function editProfileMenu() {
-  try {
-    const profiles = await listProfiles();
-
-    if (profiles.length === 0) {
-      printHeader('暂无配置');
-      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
-      return showMainMenu();
-    }
-
-    const { profileName } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'profileName',
-        message: '选择要编辑的配置',
-        choices: profiles.map(p => ({ name: p.name, value: p.name }))
-      }
-    ]);
-
-    const profile = profiles.find(p => p.name === profileName);
-
-    const answers = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'proxy',
-        message: '代理地址 (可选)',
-        default: profile.proxy?.server || ''
-      },
-      {
-        type: 'input',
-        name: 'startUrl',
-        message: '启动 URL (可选)',
-        default: profile.startUrl || ''
-      },
-      {
-        type: 'input',
-        name: 'notes',
-        message: '备注 (可选)',
-        default: profile.notes || ''
-      }
-    ]);
-
-    const spinner = ora('正在保存配置...').start();
-
-    await updateProfile(profileName, {
-      proxy: answers.proxy ? { server: answers.proxy } : null,
-      startUrl: answers.startUrl,
-      notes: answers.notes
-    });
-
-    spinner.succeed('配置已更新');
-    return showMainMenu();
-  } catch (error) {
-    showError(error.message);
-    return showMainMenu();
-  }
-}
-
-async function renameProfileMenu() {
-  try {
-    const profiles = await listProfiles();
-
-    if (profiles.length === 0) {
-      printHeader('暂无配置');
-      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
-      return showMainMenu();
-    }
-
-    const { oldName } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'oldName',
-        message: '选择要重命名的配置',
-        choices: profiles.map(p => ({ name: p.name, value: p.name }))
-      }
-    ]);
-
-    const { newName } = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'newName',
-        message: '新名称',
-        validate: (input) => input.trim() ? true : '名称不能为空'
-      }
-    ]);
-
-    const spinner = ora('正在重命名...').start();
-    await renameProfile(oldName, newName);
-    spinner.succeed('配置已重命名');
-
-    return showMainMenu();
-  } catch (error) {
-    showError(error.message);
-    return showMainMenu();
+    return configManagementMenu();
   }
 }
 
 async function deleteProfileMenu() {
   try {
     const profiles = await listProfiles();
+    const groups = await listGroups();
 
     if (profiles.length === 0) {
       printHeader('暂无配置');
+      showInfo('没有可删除的配置');
       await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
-      return showMainMenu();
+      return configManagementMenu();
     }
 
     const { profileName } = await inquirer.prompt([
@@ -393,7 +258,13 @@ async function deleteProfileMenu() {
         type: 'list',
         name: 'profileName',
         message: '选择要删除的配置',
-        choices: profiles.map(p => ({ name: p.name, value: p.name }))
+        choices: profiles.map((p, i) => {
+          const groupName = p.group ? groups.find(g => g.id === p.group)?.name : '-';
+          return {
+            name: `[${i+1}] ${p.name} [${groupName}]`,
+            value: p.name
+          };
+        })
       }
     ]);
 
@@ -408,98 +279,32 @@ async function deleteProfileMenu() {
 
     if (!confirm) {
       showInfo('已取消');
-      return showMainMenu();
+      return configManagementMenu();
     }
 
     const spinner = ora('正在删除...').start();
     await removeProfile(profileName);
     spinner.succeed('配置已删除');
 
-    return showMainMenu();
+    return configManagementMenu();
   } catch (error) {
     showError(error.message);
-    return showMainMenu();
-  }
-}
-
-async function starManagementMenu() {
-  try {
-    const profiles = await listProfiles();
-
-    if (profiles.length === 0) {
-      printHeader('暂无配置');
-      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
-      return showMainMenu();
-    }
-
-    const { profileName } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'profileName',
-        message: '选择配置',
-        choices: profiles.map(p => ({
-          name: `${p.starred ? ' ★' : '  '} ${p.name}`,
-          value: p.name
-        }))
-      }
-    ]);
-
-    const profile = profiles.find(p => p.name === profileName);
-    const spinner = ora('正在更新...').start();
-
-    await updateProfile(profileName, { starred: !profile.starred });
-    spinner.succeed(`已${profile.starred ? '取消' : ''}星标`);
-
-    return showMainMenu();
-  } catch (error) {
-    showError(error.message);
-    return showMainMenu();
-  }
-}
-
-async function fingerprintMenu() {
-  try {
-    const profiles = await listProfiles();
-
-    if (profiles.length === 0) {
-      printHeader('暂无配置');
-      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
-      return showMainMenu();
-    }
-
-    const { profileName } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'profileName',
-        message: '选择配置',
-        choices: profiles.map(p => ({ name: p.name, value: p.name }))
-      }
-    ]);
-
-    const spinner = ora('正在重新生成指纹...').start();
-    await regenerateFingerprint(profileName);
-    spinner.succeed('指纹已重新生成');
-
-    return showMainMenu();
-  } catch (error) {
-    showError(error.message);
-    return showMainMenu();
+    return configManagementMenu();
   }
 }
 
 async function groupManagementMenu() {
-  printHeader('分组管理');
-
+  printHeader('管理分组');
+  
   const { action } = await inquirer.prompt([
     {
       type: 'list',
       name: 'action',
       message: '选择操作',
       choices: [
-        { name: '[1] 查看所有分组', value: 'list' },
+        { name: '[1] 查看分组', value: 'list' },
         { name: '[2] 创建分组', value: 'create' },
-        { name: '[3] 编辑分组', value: 'edit' },
-        { name: '[4] 删除分组', value: 'delete' },
+        { name: '[3] 删除分组', value: 'delete' },
         { name: '[0] 返回主菜单', value: 'back' }
       ]
     }
@@ -508,7 +313,6 @@ async function groupManagementMenu() {
   switch(action) {
     case 'list': await listGroupsMenu(); break;
     case 'create': await createGroupMenu(); break;
-    case 'edit': await editGroupMenu(); break;
     case 'delete': await deleteGroupMenu(); break;
     case 'back': return showMainMenu();
   }
@@ -531,7 +335,7 @@ async function listGroupsMenu() {
     const table = new Table({
       head: ['分组名称', '颜色', '配置数量'],
       style: { head: [], border: ['cyan'] },
-      colWidths: [25, 12, 10]
+      colWidths: [25, 12, 15]
     });
 
     groups.forEach(g => {
@@ -557,81 +361,12 @@ async function createGroupMenu() {
         name: 'name',
         message: '分组名称',
         validate: (input) => input.trim() ? true : '名称不能为空'
-      },
-      {
-        type: 'list',
-        name: 'color',
-        message: '颜色',
-        choices: [
-          { name: '[1] blue', value: 'blue' },
-          { name: '[2] green', value: 'green' },
-          { name: '[3] red', value: 'red' },
-          { name: '[4] purple', value: 'purple' },
-          { name: '[5] yellow', value: 'yellow' },
-          { name: '[6] cyan', value: 'cyan' }
-        ],
-        default: 'blue'
       }
     ]);
 
     const spinner = ora('正在创建分组...').start();
-    await createGroup(answers.name, answers.color);
+    await createGroup(answers.name, 'blue');
     spinner.succeed('分组创建成功');
-
-    return groupManagementMenu();
-  } catch (error) {
-    showError(error.message);
-    return groupManagementMenu();
-  }
-}
-
-async function editGroupMenu() {
-  try {
-    const groups = await listGroups();
-
-    if (groups.length === 0) {
-      printHeader('暂无分组');
-      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
-      return groupManagementMenu();
-    }
-
-    const { groupId } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'groupId',
-        message: '选择要编辑的分组',
-        choices: groups.map(g => ({ name: g.name, value: g.id }))
-      }
-    ]);
-
-    const group = groups.find(g => g.id === groupId);
-
-    const answers = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'name',
-        message: '分组名称',
-        default: group.name
-      },
-      {
-        type: 'list',
-        name: 'color',
-        message: '颜色',
-        choices: [
-          { name: '[1] blue', value: 'blue' },
-          { name: '[2] green', value: 'green' },
-          { name: '[3] red', value: 'red' },
-          { name: '[4] purple', value: 'purple' },
-          { name: '[5] yellow', value: 'yellow' },
-          { name: '[6] cyan', value: 'cyan' }
-        ],
-        default: group.color
-      }
-    ]);
-
-    const spinner = ora('正在保存...').start();
-    await updateGroup(groupId, answers);
-    spinner.succeed('分组已更新');
 
     return groupManagementMenu();
   } catch (error) {
@@ -655,15 +390,19 @@ async function deleteGroupMenu() {
         type: 'list',
         name: 'groupId',
         message: '选择要删除的分组',
-        choices: groups.map(g => ({ name: g.name, value: g.id }))
+        choices: groups.map((g, i) => ({
+          name: `[${i+1}] ${g.name}`,
+          value: g.id
+        }))
       }
     ]);
 
+    const groupName = groups.find(g => g.id === groupId).name;
     const { confirm } = await inquirer.prompt([
       {
         type: 'confirm',
         name: 'confirm',
-        message: '确认删除该分组?',
+        message: `确认删除分组 "${groupName}"?`,
         default: false
       }
     ]);
@@ -684,40 +423,38 @@ async function deleteGroupMenu() {
   }
 }
 
-async function exportProfileMenu() {
-  try {
-    const profiles = await listProfiles();
-
-    if (profiles.length === 0) {
-      printHeader('暂无配置');
-      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
-      return showMainMenu();
+async function backupManagementMenu() {
+  printHeader('备份管理');
+  
+  const { action } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'action',
+      message: '选择操作',
+      choices: [
+        { name: '[1] 导入配置', value: 'import' },
+        { name: '[2] 导出配置', value: 'export' },
+        { name: '[0] 返回主菜单', value: 'back' }
+      ]
     }
+  ]);
 
-    const { profileName } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'profileName',
-        message: '选择要导出的配置',
-        choices: profiles.map(p => ({ name: p.name, value: p.name }))
-      }
-    ]);
-
-    const spinner = ora('正在导出...').start();
-    const config = await exportProfile(profileName);
-    const filename = `${profileName}.json`;
-    writeFileSync(filename, JSON.stringify(config, null, 2));
-    spinner.succeed(`配置已导出到: ${filename}`);
-
-    return showMainMenu();
-  } catch (error) {
-    showError(error.message);
-    return showMainMenu();
+  switch(action) {
+    case 'import': await importProfileMenu(); break;
+    case 'export': await exportProfileMenu(); break;
+    case 'back': return showMainMenu();
   }
 }
 
 async function importProfileMenu() {
   try {
+    const groups = await listGroups();
+
+    const groupChoices = groups.length > 0 
+      ? groups.map((g, i) => ({ name: `[${i+1}] ${g.name}`, value: g.id }))
+      : [];
+    groupChoices.push({ name: '[0] 无分组', value: '' });
+
     const answers = await inquirer.prompt([
       {
         type: 'input',
@@ -730,133 +467,112 @@ async function importProfileMenu() {
         name: 'name',
         message: '新配置名称',
         validate: (input) => input.trim() ? true : '名称不能为空'
+      },
+      {
+        type: 'list',
+        name: 'group',
+        message: '选择分组',
+        choices: groupChoices
       }
     ]);
 
     const spinner = ora('正在导入...').start();
     const content = readFileSync(answers.filename, 'utf-8');
     const config = JSON.parse(content);
+    config.group = answers.group;
     await importProfile(answers.name, config);
     spinner.succeed('配置导入成功');
 
-    return showMainMenu();
+    return backupManagementMenu();
   } catch (error) {
     showError(error.message);
-    return showMainMenu();
+    return backupManagementMenu();
   }
 }
 
-async function batchDeleteMenu() {
+async function exportProfileMenu() {
   try {
     const profiles = await listProfiles();
+    const groups = await listGroups();
 
     if (profiles.length === 0) {
       printHeader('暂无配置');
+      showError('没有可导出的配置');
       await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
-      return showMainMenu();
+      return backupManagementMenu();
     }
 
-    const { selectedProfiles } = await inquirer.prompt([
+    const { profileName } = await inquirer.prompt([
       {
-        type: 'checkbox',
-        name: 'selectedProfiles',
-        message: '选择要删除的配置 (Space 选择，Enter 确认)',
-        choices: profiles.map(p => ({ name: p.name, value: p.name })),
-        validate: (input) => input.length > 0 ? true : '至少选择一个配置'
+        type: 'list',
+        name: 'profileName',
+        message: '选择要导出的配置',
+        choices: profiles.map((p, i) => {
+          const groupName = p.group ? groups.find(g => g.id === p.group)?.name : '-';
+          return {
+            name: `[${i+1}] ${p.name} [${groupName}]`,
+            value: p.name
+          };
+        })
       }
     ]);
 
+    const spinner = ora('正在导出...').start();
+    const config = await exportProfile(profileName);
+    const filename = `${profileName}.json`;
+    writeFileSync(filename, JSON.stringify(config, null, 2));
+    spinner.succeed(`配置已导出到: ${filename}`);
+
+    return backupManagementMenu();
+  } catch (error) {
+    showError(error.message);
+    return backupManagementMenu();
+  }
+}
+
+async function exitApp() {
+  if (runningBrowsers.size > 0) {
     const { confirm } = await inquirer.prompt([
       {
         type: 'confirm',
         name: 'confirm',
-        message: `确认删除 ${selectedProfiles.length} 个配置?`,
+        message: `有 ${runningBrowsers.size} 个浏览器仍在运行，确认退出?`,
         default: false
       }
     ]);
 
     if (!confirm) {
-      showInfo('已取消');
       return showMainMenu();
     }
 
-    const spinner = ora('正在删除...').start();
-    await batchDeleteProfiles(selectedProfiles);
-    spinner.succeed(`成功删除 ${selectedProfiles.length} 个配置`);
-
-    return showMainMenu();
-  } catch (error) {
-    showError(error.message);
-    return showMainMenu();
-  }
-}
-
-async function closeBrowserMenu() {
-  try {
-    await cleanupClosedBrowsers();
-
-    if (runningBrowsers.size === 0) {
-      printHeader('关闭浏览器');
-      showInfo('没有运行中的浏览器');
-      await inquirer.prompt([{ type: 'input', name: 'proceed', message: '按 Enter 返回...' }]);
-      return showMainMenu();
-    }
-
-    const browserList = Array.from(runningBrowsers.keys());
-    const { browserName } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'browserName',
-        message: '选择要关闭的浏览器',
-        choices: [
-          ...browserList.map((name, i) => ({ name: `[${i+1}] ${name}`, value: name })),
-          { name: '[A] 关闭全部', value: 'all' },
-          { name: '[0] 取消', value: 'cancel' }
-        ]
+    const spinner = ora('正在关闭浏览器...').start();
+    for (const [name, context] of runningBrowsers) {
+      try {
+        await closeBrowser(context);
+      } catch (error) {
+        console.error(`关闭 ${name} 失败:`, error.message);
       }
-    ]);
-
-    if (browserName === 'cancel') {
-      return showMainMenu();
     }
-
-    const spinner = ora('正在关闭...').start();
-
-    if (browserName === 'all') {
-      for (const [name, context] of runningBrowsers) {
-        try {
-          await closeBrowser(context);
-        } catch (error) {
-          console.error(`关闭 ${name} 失败:`, error.message);
-        }
-      }
-      runningBrowsers.clear();
-      spinner.succeed('所有浏览器已关闭');
-    } else {
-      const context = runningBrowsers.get(browserName);
-      await closeBrowser(context);
-      runningBrowsers.delete(browserName);
-      spinner.succeed('浏览器已关闭');
-    }
-
-    return showMainMenu();
-  } catch (error) {
-    showError(error.message);
-    return showMainMenu();
+    spinner.succeed('已关闭所有浏览器');
   }
+
+  console.log(colors.success('\n感谢使用浏览器配置管理器！再见！\n'));
+  process.exit(0);
 }
 
 process.on('SIGINT', async () => {
   console.log('\n');
-  const spinner = ora('正在关闭所有浏览器...').start();
-  for (const [name, context] of runningBrowsers) {
-    try {
-      await closeBrowser(context);
-    } catch (error) {
-      console.error(`关闭 ${name} 失败:`, error.message);
+  if (runningBrowsers.size > 0) {
+    const spinner = ora('正在关闭所有浏览器...').start();
+    for (const [name, context] of runningBrowsers) {
+      try {
+        await closeBrowser(context);
+      } catch (error) {
+        console.error(`关闭 ${name} 失败:`, error.message);
+      }
     }
+    spinner.succeed('已退出');
   }
-  spinner.succeed('已退出');
   process.exit(0);
 });
 
