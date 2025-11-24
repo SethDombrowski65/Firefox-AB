@@ -2,8 +2,8 @@ const { createApp, ref, computed, onMounted, nextTick } = Vue;
 
 const app = createApp({
   template: `
-    <div class="relative min-h-screen flex">
-      <div class="w-64 bg-white border-r border-slate-200 shadow-sm flex flex-col fixed left-0 top-0 h-screen">
+    <div class="relative w-full h-full flex">
+      <div class="w-64 bg-white border-r border-slate-200 shadow-sm flex flex-col flex-shrink-0">
         <div class="p-6 border-b border-slate-200">
           <div class="flex items-center gap-3 mb-2">
             <span class="iconify text-2xl text-blue-600" data-icon="mdi:globe"></span>
@@ -40,10 +40,13 @@ const app = createApp({
         </div>
       </div>
 
-      <div class="ml-64 flex-1 min-h-screen flex flex-col">
-        <div class="flex-1 p-8 overflow-auto">
-          <div v-if="alertMessage" :class="alertClass" class="mb-6 p-4 rounded-2xl border shadow">
-            <p>{{ alertMessage }}</p>
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <div class="flex-1 p-8 overflow-y-auto">
+          <div v-if="alertMessage" :class="alertClass" class="mb-6 p-4 rounded-2xl border shadow flex items-center gap-2">
+            <span v-if="alertMessage.startsWith('✓')" class="iconify text-xl" data-icon="mdi:check-circle"></span>
+            <span v-if="alertMessage.startsWith('✗')" class="iconify text-xl" data-icon="mdi:close-circle"></span>
+            <span v-if="!alertMessage.startsWith('✓') && !alertMessage.startsWith('✗')" class="iconify text-xl" data-icon="mdi:information"></span>
+            <p>{{ alertMessage.replace('✓', '').replace('✗', '').trim() }}</p>
           </div>
 
           <DashboardPage v-if="currentPage === 'dashboard'" 
@@ -128,7 +131,7 @@ const app = createApp({
                       <span v-if="isRunning(profile.name)" class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
                     </div>
                     <div class="text-sm text-slate-600 mt-1">
-                      <span class="iconify" :data-icon="profile.browserType === 'firefox' ? 'mdi:firefox' : 'mdi:chrome'"></span>
+                      <span class="iconify" :data-icon="profile.browserType === 'firefox' ? 'mdi:firefox' : 'logos:chrome'"></span>
                       {{ profile.browserType === 'firefox' ? 'Firefox' : 'Chromium' }}
                       <span class="text-slate-400 ml-2">{{ formatDate(profile.lastUsed) }}</span>
                     </div>
@@ -164,7 +167,7 @@ const app = createApp({
                       <div class="font-bold text-slate-900 truncate">{{ profile.name }}</div>
                     </div>
                     <div class="text-sm text-slate-600 mt-1">
-                      <span class="iconify" :data-icon="profile.browserType === 'firefox' ? 'mdi:firefox' : 'mdi:chrome'"></span>
+                      <span class="iconify" :data-icon="profile.browserType === 'firefox' ? 'mdi:firefox' : 'logos:chrome'"></span>
                       {{ profile.browserType === 'firefox' ? 'Firefox' : 'Chromium' }}
                     </div>
                   </div>
@@ -833,12 +836,18 @@ const app = createApp({
                   <span v-if="isRunning(profile.name)" class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
                 </div>
                 <div class="text-sm text-slate-600 mt-1 flex items-center gap-2 flex-wrap">
-                  <span class="iconify" :data-icon="profile.browserType === 'firefox' ? 'mdi:firefox' : 'mdi:chrome'"></span>
+                  <span class="iconify" :data-icon="profile.browserType === 'firefox' ? 'mdi:firefox' : 'logos:chrome'"></span>
                   {{ profile.browserType === 'firefox' ? 'Firefox' : 'Chromium' }}
                   <span v-if="profile.group" :class="getGroupStyle(profile.group)" class="px-2 py-1 rounded-full text-xs font-semibold">{{ getGroupName(profile.group) }}</span>
-                  <span v-if="profile.proxy" class="text-xs text-purple-600 px-2 py-1 bg-purple-50 rounded">🌐 代理</span>
-                  <span v-if="profile.startUrl" class="text-xs text-green-600 px-2 py-1 bg-green-50 rounded">🚀 启动URL</span>
-                  <span v-if="profile.enableFingerprint !== false" class="text-xs text-blue-600 px-2 py-1 bg-blue-50 rounded">🔒 指纹</span>
+                  <span v-if="profile.proxy" class="text-xs text-purple-600 px-2 py-1 bg-purple-50 rounded flex items-center gap-1">
+                    <span class="iconify" data-icon="mdi:web"></span> 代理
+                  </span>
+                  <span v-if="profile.startUrl" class="text-xs text-green-600 px-2 py-1 bg-green-50 rounded flex items-center gap-1">
+                    <span class="iconify" data-icon="mdi:rocket-launch"></span> 启动URL
+                  </span>
+                  <span v-if="profile.enableFingerprint !== false" class="text-xs text-blue-600 px-2 py-1 bg-blue-50 rounded flex items-center gap-1">
+                    <span class="iconify" data-icon="mdi:fingerprint"></span> 指纹
+                  </span>
                 </div>
                 <div v-if="profile.notes" class="text-xs text-slate-500 mt-1">{{ profile.notes }}</div>
                 <div class="text-xs text-slate-400 mt-1">
@@ -854,7 +863,7 @@ const app = createApp({
                   打开
                 </button>
                 <button @click="showMenu(profile, $event)" class="px-3 py-2 rounded-lg bg-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-300 transition">
-                  ⋮
+                  <span class="iconify" data-icon="mdi:dots-vertical"></span>
                 </button>
               </div>
             </div>
@@ -1122,7 +1131,7 @@ const app = createApp({
                 <h3 class="text-lg font-semibold text-slate-900 mb-3">支持的浏览器</h3>
                 <div class="space-y-2">
                   <div class="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                    <span class="iconify text-2xl text-blue-600" data-icon="mdi:chrome"></span>
+                    <span class="iconify text-2xl text-blue-600" data-icon="logos:chrome"></span>
                     <div>
                       <p class="font-semibold text-slate-900">Chromium</p>
                       <p class="text-sm text-slate-600">完全隔离的Chromium内核浏览器</p>

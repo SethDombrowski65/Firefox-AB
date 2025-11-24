@@ -1,131 +1,134 @@
-# 浏览器账户管理器
+# Browser Manager
 
-一个轻量级的多浏览器 Profile 管理工具，支持 Chrome 和 Firefox，内置指纹识别保护，完全离线使用。
+<div align="center">
 
-## 功能特性
+**多浏览器配置管理工具**
 
-✅ **多浏览器支持** - Chrome 和 Firefox  
-✅ **独立 Profile** - 每个账户完全隔离数据  
-✅ **指纹识别保护** - 内置 My Fingerprint 扩展  
-✅ **完全离线** - 所有浏览器内置，无需网络  
-✅ **图形界面** - 轻松管理多个 Profile  
-✅ **跨平台** - Windows 和 Linux 支持  
+支持 Chromium 和 Firefox 的独立配置管理，内置指纹保护和代理配置
+
+[下载](../../releases) · [使用指南](#使用) · [反馈问题](../../issues)
+
+</div>
+
+---
+
+## 简介
+
+Browser Manager 是一款基于 Electron 和 Playwright 的桌面应用，帮助你管理多个独立的浏览器配置。每个配置拥有完全隔离的数据存储，支持指纹伪装和代理设置，适合需要多账号管理、隐私保护的场景。
+
+## 核心功能
+
+- **多配置管理** - 创建、编辑、分组管理多个浏览器配置
+- **完全隔离** - 每个配置独立存储 Cookies、缓存、Session
+- **指纹保护** - Canvas、WebGL、音频指纹随机化
+- **代理配置** - 支持 HTTP/HTTPS/SOCKS5 代理及认证
+- **双浏览器** - 同时支持 Chromium 和 Firefox
+- **现代界面** - 基于 Vue 3 的直观操作界面
 
 ## 安装
 
-### 下载应用
+### 下载安装包
 
-**Windows / Linux**: 从 [Releases](https://github.com/your-repo/releases) 下载最新版本（~400MB）
+前往 [Releases](../../releases) 页面下载适合你系统的安装包：
 
-- Windows: `Browser-Manager-Windows-v1.0.0.zip`
-- Linux: `Browser Manager-1.0.0.AppImage`
+- **Windows**: `Browser-Manager-Windows-Both-1.0.0.zip`
+- **Linux**: `Browser-Manager-Linux-Both-1.0.0.zip`
 
-### 运行
+解压后直接运行。
 
-**Windows**:
-1. 解压 ZIP 文件
-2. 打开 `Browser Manager.exe`
+### 从源码运行
 
-**Linux**:
-1. 运行 `chmod +x "Browser Manager-1.0.0.AppImage"`
-2. 双击运行，或命令行执行：`./Browser\ Manager-1.0.0.AppImage`
-
-### 开发环境
-
-#### 前置要求
-- Node.js 24+ （[安装 NVM](https://github.com/nvm-sh/nvm)）
-
-#### 安装依赖
 ```bash
+# 克隆项目
+git clone https://github.com/user/Firefox-AB.git
+cd Firefox-AB
+
+# 安装依赖
 pnpm install
-```
 
-#### 运行
-
-**启动 GUI**:
-```bash
+# 启动应用
 pnpm start
 ```
 
-## 使用说明
+**环境要求**: Node.js 18+ 和 pnpm
 
-### GUI 界面
+## 使用
 
-1. **打开应用** → 显示现有 Profile 列表
-2. **创建 Profile** → 选择 Chrome 或 Firefox → 输入名称
-3. **启动浏览器** → 点击 Profile 卡片 → 浏览器自动启动
-4. **删除 Profile** → 点击删除按钮
+### 图形界面
 
+启动应用后，你可以：
 
+1. **仪表盘** - 查看统计信息、快速访问最近和收藏的配置
+2. **配置管理** - 浏览、搜索、启动所有浏览器配置
+3. **创建配置** - 配置浏览器类型、代理、启动参数等
+4. **分组管理** - 用颜色和名称组织配置
+5. **设置** - 调整应用首选项
 
-## 构建与发布
+### 命令行
 
-应用通过 GitHub Actions 自动构建，生成的文件可在 Releases 中下载。
-
-## 项目结构
-
-```
-.
-├── src/
-│   ├── manager.js          Profile 管理器
-│   ├── launcher.js         浏览器启动器
-│   └── gui/
-│       ├── main.js         Electron 主进程
-│       ├── renderer.js     UI 逻辑
-│       └── index.html      UI 界面
-├── plugins/                浏览器扩展目录
-├── .github/workflows/      CI/CD 工作流
-│   └── build.yml           GitHub Actions 构建配置
-├── build-with-browsers.js  构建脚本
-├── package.json
-└── README.md
-```
-
-## 配置
-
-### 浏览器数据存储
-
-Profile 数据存储在：`~/.browser-manager/profiles/<name>/`
-
-每个 Profile 包含：
-- 浏览器缓存、Cookies、LocalStorage
-- 扩展数据和设置
-- 完全独立的浏览器会话
-
-### 扩展
-
-指纹识别扩展 (My Fingerprint v2.6.3) 自动启用：
-- **Chrome**: 通过启动参数加载
-- **Firefox**: 自动复制到 Profile 的扩展目录
-
-## 故障排查
-
-### 浏览器无法启动
-
-确保 pnpm install 已完成（首次会下载浏览器到 `~/.cache/ms-playwright/`）
-
-### Profile 无法创建
-
-检查 `~/.browser-manager/` 目录权限：
 ```bash
-chmod -R 755 ~/.browser-manager
+# 创建配置
+node src/cli.js create myProfile --browser firefox --fingerprint
+
+# 启动浏览器
+node src/cli.js open myProfile
+
+# 列出所有配置
+node src/cli.js list
+
+# 删除配置
+node src/cli.js remove myProfile
 ```
 
-### Linux 上缺少依赖库
+**更多命令**: 运行 `node src/cli.js --help` 查看完整文档
 
-部分 Linux 发行版可能缺少浏览器依赖：
+## 指纹保护
+
+启用指纹保护后，会自动随机化以下浏览器特征：
+
+- Canvas 渲染指纹
+- WebGL 渲染器和供应商
+- 音频上下文指纹
+- 字体列表
+- User-Agent
+- 屏幕分辨率
+- 时区和语言
+
+## 数据存储
+
+配置文件存储在 `~/.browser-manager/`:
+
+```
+~/.browser-manager/
+├── data.db                    # SQLite 数据库
+└── profiles/
+    ├── profile1/             # 配置1的浏览器数据
+    └── profile2/             # 配置2的浏览器数据
+```
+
+每个配置的浏览器数据完全独立，互不影响。
+
+## 技术架构
+
+- **Electron** - 跨平台桌面应用
+- **Playwright** - 浏览器控制和自动化
+- **Vue 3** - 响应式用户界面
+- **sql.js** - 轻量级数据存储
+- **Tailwind CSS** - 现代化样式
+
+## 开发
+
 ```bash
-# Debian/Ubuntu
-sudo apt-get install libnss3 libxss1 libasound2
+# 安装依赖
+pnpm install
 
-# Fedora
-sudo dnf install nss libXss
+# 开发模式
+pnpm start
+
+# 构建打包
+pnpm build
 ```
 
 ## 许可证
 
-MIT
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！
+MIT License - 详见 [LICENSE](LICENSE) 文件
