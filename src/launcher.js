@@ -6,7 +6,7 @@ import { updateProfileUsage } from './manager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(__dirname, '..', '..', '..', 'browsers');
+const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(__dirname, '..', 'browsers');
 const appRoot = path.dirname(browsersPath);
 const PLUGINS_DIR = path.join(appRoot, 'plugins');
 
