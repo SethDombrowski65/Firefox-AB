@@ -70,15 +70,33 @@ function showInfo(message) {
 async function cleanupClosedBrowsers() {
   const toRemove = [];
   for (const [name, context] of runningBrowsers) {
+    let isClosed = false;
+    
     try {
-      if (context.pages && await context.pages().then(pages => pages.length === 0).catch(() => false)) {
-        toRemove.push(name);
+      if (!context) {
+        isClosed = true;
+      } else {
+        const pages = await context.pages().catch(() => null);
+        if (pages === null) {
+          isClosed = true;
+        } else if (pages.length === 0) {
+          isClosed = true;
+        }
       }
     } catch (error) {
+      isClosed = true;
+    }
+    
+    if (isClosed) {
       toRemove.push(name);
     }
   }
-  toRemove.forEach(name => runningBrowsers.delete(name));
+  
+  toRemove.forEach(name => {
+    runningBrowsers.delete(name);
+  });
+  
+  return toRemove;
 }
 
 async function showMainMenu() {
@@ -109,6 +127,7 @@ async function showMainMenu() {
 }
 
 async function configManagementMenu() {
+  await cleanupClosedBrowsers();
   printHeader('管理配置');
   
   const { action } = await inquirer.prompt([
@@ -394,6 +413,7 @@ async function batchExportProfilesMenu() {
 }
 
 async function groupManagementMenu() {
+  await cleanupClosedBrowsers();
   printHeader('管理分组');
   
   const { action } = await inquirer.prompt([
@@ -421,6 +441,7 @@ async function groupManagementMenu() {
 }
 
 async function listGroupsMenu() {
+  await cleanupClosedBrowsers();
   try {
     const groups = await listGroups();
     const profiles = await listProfiles();
@@ -481,6 +502,7 @@ async function listGroupsMenu() {
 }
 
 async function groupProfilesMenu(groupId, groups) {
+  await cleanupClosedBrowsers();
   try {
     const group = groups.find(g => g.id === groupId);
     const profiles = await listProfiles();
@@ -816,6 +838,7 @@ async function batchDeleteGroupsMenu() {
 }
 
 async function backupManagementMenu() {
+  await cleanupClosedBrowsers();
   printHeader('备份管理');
   
   const { action } = await inquirer.prompt([
