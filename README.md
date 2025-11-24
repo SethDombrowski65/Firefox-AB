@@ -21,6 +21,20 @@ Browser Manager 是一款基于 Playwright 的TUI工具，帮助你管理多个�
 
 ## 安装
 
+### 下载安装包
+
+从 [Releases](../../releases) 下载对应系统的压缩包并解压
+
+**Windows**:
+1. 解压 `Browser-Manager-Windows-Both-1.0.0.zip`
+2. 双击运行 `start.bat`
+
+**Linux**:
+1. 解压 `Browser-Manager-Linux-Both-1.0.0.zip`
+2. 运行 `./start.sh`
+
+### 从源码运行
+
 ```bash
 git clone https://github.com/user/Firefox-AB.git
 cd Firefox-AB

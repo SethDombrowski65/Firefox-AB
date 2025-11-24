@@ -122,78 +122,33 @@ try {
   
   console.log(`✓ 浏览器复制完成\n`);
 
-  console.log('步骤3: 编译');
-  try {
-    process.env.CSC_IDENTITY_AUTO_DISCOVERY = 'false';
-    if (isWindows) {
-      execSync('npx electron-builder -w --publish=never', { stdio: 'inherit' });
-    } else {
-      execSync('npx electron-builder -l', { stdio: 'inherit' });
-    }
-  } catch (error) {
-    console.log('编译警告（但可执行文件已生成）');
-  }
-  console.log('完成\n');
-
-  console.log('步骤3.5: 验证并完整复制插件目录');
-  const unpackedDirVerify = isWindows 
-    ? path.join(distDir, 'win-unpacked')
-    : path.join(distDir, 'linux-unpacked');
-  
-  if (!existsSync(srcPluginsDir)) {
-    throw new Error(`插件目录不存在: ${srcPluginsDir}`);
-  }
-  
-  const builtPluginsDir = path.join(unpackedDirVerify, 'plugins');
-  
-  if (existsSync(builtPluginsDir)) {
-    console.log('清理已有的插件目录...');
-    rmSync(builtPluginsDir, { recursive: true, force: true });
-  }
-  
-  console.log('复制完整的插件目录...');
-  try {
-    cpSync(srcPluginsDir, builtPluginsDir, { recursive: true });
-  } catch (error) {
-    console.error('插件复制失败:', error.message);
-    throw new Error('插件复制失败，无法继续构建');
-  }
-  
-  const builtChromePluginsDir = path.join(builtPluginsDir, 'chrome');
-  const builtFirefoxPluginsDir = path.join(builtPluginsDir, 'firefox');
-  
-  if (existsSync(builtChromePluginsDir)) {
-    const chromePlugins = readdirSync(builtChromePluginsDir);
-    if (chromePlugins.length === 0) {
-      console.log('⚠ Chrome 插件目录为空');
-    } else {
-      console.log(`✓ Chrome 插件已复制: ${chromePlugins.join(', ')}`);
-    }
-  } else {
-    console.log('⚠ Chrome 插件目录不存在');
-  }
-  
-  if (existsSync(builtFirefoxPluginsDir)) {
-    const firefoxPlugins = readdirSync(builtFirefoxPluginsDir);
-    if (firefoxPlugins.length === 0) {
-      console.log('⚠ Firefox 插件目录为空');
-    } else {
-      console.log(`✓ Firefox 插件已复制: ${firefoxPlugins.join(', ')}`);
-    }
-  } else {
-    console.log('⚠ Firefox 插件目录不存在');
-  }
-  
-  console.log(`✓ 插件目录已复制到: ${builtPluginsDir}\n`);
-
-  console.log('步骤4: 打包');
+  console.log('步骤3: 打包应用');
   const unpackedDir = isWindows 
     ? path.join(distDir, 'win-unpacked')
     : path.join(distDir, 'linux-unpacked');
   
-  if (!existsSync(unpackedDir)) {
-    throw new Error(`构建目录不存在: ${unpackedDir}`);
+  if (existsSync(unpackedDir)) {
+    rmSync(unpackedDir, { recursive: true, force: true });
   }
+  mkdirSync(unpackedDir, { recursive: true });
+  
+  console.log('复制项目文件...');
+  cpSync(path.join(__dirname, 'src'), path.join(unpackedDir, 'src'), { recursive: true });
+  cpSync(path.join(__dirname, 'node_modules'), path.join(unpackedDir, 'node_modules'), { recursive: true });
+  cpSync(path.join(__dirname, 'package.json'), path.join(unpackedDir, 'package.json'));
+  cpSync(browsersDir, path.join(unpackedDir, 'browsers'), { recursive: true });
+  cpSync(pluginsDir, path.join(unpackedDir, 'plugins'), { recursive: true });
+  
+  if (isWindows) {
+    cpSync(path.join(__dirname, 'start.bat'), path.join(unpackedDir, 'start.bat'));
+  } else {
+    cpSync(path.join(__dirname, 'start.sh'), path.join(unpackedDir, 'start.sh'));
+    execSync(`chmod +x ${path.join(unpackedDir, 'start.sh')}`);
+  }
+  
+  console.log('✓ 项目文件已复制\n');
+
+  console.log('步骤4: 打包');
   
   const browserSuffix = browsersType === 'chromium' ? 'Chromium' : 
                         browsersType === 'firefox' ? 'Firefox' : 'Both';

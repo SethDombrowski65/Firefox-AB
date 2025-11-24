@@ -4,13 +4,13 @@
   "description": "Multi-account browser profile manager with independent data directories",
   "author": "Browser Manager",
   "type": "module",
-  "main": "src/tui.js",
+  "main": "src/cli.js",
   "engines": {
     "node": ">=24.0.0",
     "pnpm": ">=10.0.0"
   },
   "scripts": {
-    "start": "node src/tui.js",
+    "start": "node src/cli.js",
     "package": "node build-with-browsers.js"
   },
   "dependencies": {
