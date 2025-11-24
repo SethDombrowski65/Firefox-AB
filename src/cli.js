@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import path from 'path';
+import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import Table from 'cli-table3';
@@ -21,6 +24,21 @@ import {
 } from './manager.js';
 import { launchBrowser, closeBrowser } from './launcher.js';
 import { readFileSync, writeFileSync } from 'fs';
+
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const possibleBrowsersPaths = [
+    path.join(__dirname, '..', 'browsers'),
+    path.join(process.cwd(), 'browsers')
+  ];
+  
+  for (const candidatePath of possibleBrowsersPaths) {
+    if (existsSync(candidatePath)) {
+      process.env.PLAYWRIGHT_BROWSERS_PATH = candidatePath;
+      break;
+    }
+  }
+}
 
 let runningBrowsers = new Map();
 

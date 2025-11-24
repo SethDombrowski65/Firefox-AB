@@ -1,12 +1,33 @@
 import { promises as fs, existsSync } from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { getFingerPrintScript } from './fingerprint.js';
 import { updateProfileUsage } from './manager.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(__dirname, '..', 'browsers');
+let browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
+
+if (!browsersPath) {
+  const possiblePaths = [
+    path.join(__dirname, '..', 'browsers'),
+    path.join(path.dirname(__dirname), 'browsers'),
+    path.join(process.cwd(), 'browsers')
+  ];
+  
+  for (const candidatePath of possiblePaths) {
+    if (existsSync(candidatePath)) {
+      browsersPath = candidatePath;
+      break;
+    }
+  }
+}
+
+if (!browsersPath) {
+  browsersPath = path.join(__dirname, '..', 'browsers');
+}
+
 const appRoot = path.dirname(browsersPath);
 const PLUGINS_DIR = path.join(appRoot, 'plugins');
 

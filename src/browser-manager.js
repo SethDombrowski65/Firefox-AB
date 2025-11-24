@@ -3,9 +3,28 @@ import { existsSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 
 export function checkBrowsersInstalled() {
-  // 优先使用环境变量，否则从应用根目录查找
-  const browsersDir = process.env.PLAYWRIGHT_BROWSERS_PATH || 
-    path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'browsers');
+  let browsersDir = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  
+  if (!browsersDir) {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const possiblePaths = [
+      path.join(__dirname, '..', 'browsers'),
+      path.join(path.dirname(__dirname), 'browsers'),
+      path.join(process.cwd(), 'browsers')
+    ];
+    
+    for (const candidatePath of possiblePaths) {
+      if (existsSync(candidatePath)) {
+        browsersDir = candidatePath;
+        break;
+      }
+    }
+  }
+  
+  if (!browsersDir) {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    browsersDir = path.join(__dirname, '..', 'browsers');
+  }
   
   let hasChromium = false;
   let hasFirefox = false;
